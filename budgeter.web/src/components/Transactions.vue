@@ -7,19 +7,41 @@
       <div></div>
     </div>
     <div>
-      <a
-        class="table-page"
-        v-bind:key="pageNum"
-        v-for="pageNum in pages"
-        v-on:click.prevent="pageChanged(pageNum)"
-      >{{ pageNum }}</a>
-      <select v-model="take">
-        <option value="10">10</option>
-        <option value="20">20</option>
-        <option value="30">30</option>
-        <option v-bind:value="maxPageLength">{{ maxPageLength }}</option>
-      </select>
-      <input type="checkbox" v-model="ignorePayments" /> Ignore Payments?
+      <div class="inline">
+        <div class="inline">
+          <label for="StartDate">Start Date</label>
+          <datepicker name="StartDate" format="MM/dd/yyyy" v-model="requestHeaders.startDate"></datepicker>
+        </div>
+        <div class="inline">
+          <label for="EndDate">End Date</label>
+          <datepicker name="EndDate" format="MM/dd/yyyy" v-model="requestHeaders.endDate"></datepicker>
+        </div>
+      </div>
+      <div class="inline">
+        <a
+          class="table-page"
+          v-bind:key="pageNum"
+          v-for="pageNum in pages"
+          v-on:click.prevent="pageChanged(pageNum)"
+        >{{ pageNum }}</a>
+      </div>
+      <div class="inline">
+        <select v-model="requestHeaders.take">
+          <option value="10">10</option>
+          <option value="20">20</option>
+          <option value="30">30</option>
+          <option v-bind:value="maxPageLength">{{ maxPageLength }}</option>
+        </select>
+      </div>
+      <div class="inline">
+        <input
+          id="IgnorePayments"
+          name="IgnorePayments"
+          type="checkbox"
+          v-model="requestHeaders.ignorePayments"
+        />
+        <label for="IgnorePayments">Ignore Payments?</label>
+      </div>
     </div>
     <table>
       <thead>
@@ -50,16 +72,23 @@
 </template>
 
 <script>
+import Datepicker from "../../node_modules/vuejs-datepicker";
 export default {
   name: "Transactions",
-
+  components: {
+    Datepicker
+  },
   data: function() {
     return {
       isLoading: true,
-      skip: 0,
-      take: 10,
-      maxPageLength: 'All',
-      ignorePayments: false,
+      requestHeaders: {
+        skip: 0,
+        take: 10,
+        ignorePayments: false,
+        startDate: null,
+        endDate: null
+      },
+      maxPageLength: "All",
       fields: [
         {
           display: "Transaction Date",
@@ -103,14 +132,24 @@ export default {
   },
 
   watch: {
-    take: function(value) {
+    pageNum: function(value) {
+      this.requestHeaders.skip = pageNum - 1;
+    },
+    "requestHeaders.take": function(value) {
       this.getTransactions();
     },
-    ignorePayments: function() {
+    "requestHeaders.ignorePayments": function() {
       this.getTransactions();
     },
-    'trxData.total': function(value) {
-      this.take = value;
+    "requestHeaders.startDate": function() {
+      this.getTransactions();
+    },
+    "requestHeaders.endDate": function() {
+      this.getTransactions();
+    },
+    "trxData.total": function(value, oldValue) {
+      if (this.requestHeaders.take === oldValue)
+        this.requestHeaders.take = value;
       this.maxPageLength = value;
     }
   },
@@ -128,26 +167,37 @@ export default {
       }
       return item.display;
     },
+    encodeValue: function(value) {
+      if (typeof value.getMonth === "function") {
+        console.log("Found datetime");
+        return encodeURIComponent(value.toLocaleDateString());
+      }
+      return encodeURIComponent(value);
+    },
     encodeUriParams: function(params) {
       return Object.keys(params)
+        .filter(k => {
+          console.log(`${k}: ${params[k]}`);
+          return params[k] !== null;
+        })
         .map(
-          key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`
+          key => `${encodeURIComponent(key)}=${this.encodeValue(params[key])}`
         )
         .join("&");
     },
     pageChanged: function(pageNum) {
-      console.log(pageNum);
-      this.skip = pageNum * this.take;
+      if (this.requestHeaders.take === this.maxPageLength) pageNum = 1;
+      this.requestHeaders.skip = (pageNum - 1) * this.requestHeaders.take;
       this.getTransactions();
     },
     getTransactions: function() {
       this.isLoading = true;
+      if (this.requestHeaders.take === this.maxPageLength)
+        this.requestHeaders.skip = 0;
       fetch(
-        `https://localhost:44341/Transactions?${this.encodeUriParams({
-          skip: this.skip,
-          take: this.take,
-          ignorePayments: this.ignorePayments
-        })}`,
+        `https://localhost:44341/Transactions?${this.encodeUriParams(
+          this.requestHeaders
+        )}`,
         {
           headers: {
             "Content-Type": "application/json"
@@ -159,12 +209,12 @@ export default {
         })
         .then(data => {
           this.trxData = data;
-          console.log(data);
-          if (this.pages.length > 0) {
-            console.log(`Updating page dropdown: ${this.pages}`);
-            this.pages = [];
-          }
-          for (var i = 1; i <= Math.floor(data.total / this.take); i++)
+          if (this.pages.length > 0) this.pages = [];
+          for (
+            var i = 1;
+            i <= Math.floor(data.total / this.requestHeaders.take);
+            i++
+          )
             this.pages.push(i);
           this.isLoading = false;
         });
@@ -179,6 +229,13 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="scss">
+.inline {
+  display: inline-flex;
+  padding-right: 0.25em;
+  label {
+    padding-right: 0.25em;
+  }
+}
 .table-page {
   padding: 0.5em;
   cursor: pointer;

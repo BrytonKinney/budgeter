@@ -1,5 +1,6 @@
 ﻿using Budgeter.API.Extensions;
 using Budgeter.API.Models;
+using Budgeter.API.Requests;
 using Npgsql;
 using System;
 using System.Collections.Generic;
@@ -22,7 +23,7 @@ namespace Budgeter.API.Services
             if (string.IsNullOrEmpty(_connectionString))
                 _connectionString = connectionString;
         }
-        public async Task<IEnumerable<TransactionRecord>> GetTransactionsAsync(int skip, int take, bool ignorePayments = false)
+        public async Task<IEnumerable<TransactionRecord>> GetTransactionsAsync(PagedTransactionRequest request)
         {
             using (var connection = new NpgsqlConnection(_connectionString))
             {
@@ -34,12 +35,12 @@ namespace Budgeter.API.Services
                     {
                         using (var cmd = connection.CreateCommand())
                         {
-                            if (ignorePayments)
+                            if (request.IgnorePayments)
                                 cmd.CommandText = SELECT_TRX_NO_PAYMENTS;
                             else
                                 cmd.CommandText = SELECT_TRX_PAYMENTS;
-                            cmd.AddParam("take", take);
-                            cmd.AddParam("skip_trx", skip);
+                            cmd.AddParam("take", request.Take);
+                            cmd.AddParam("skip_trx", request.Skip);
                             cmd.Transaction = trx;
                             using (var dr = await cmd.ExecuteReaderAsync())
                             {

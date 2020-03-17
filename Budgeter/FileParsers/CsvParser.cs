@@ -1,40 +1,16 @@
-﻿using System;
-using System.Collections.Concurrent;
+﻿using Budgeter.FileParsers.Attributes;
+using System;
 using System.Collections.Generic;
-using System.Reflection;
-using System.Threading.Tasks;
 using System.IO;
 using System.Linq;
-using Budgeter.FileParsers.Attributes;
+using System.Reflection;
+using System.Threading.Tasks;
 
 namespace Budgeter.FileParsers
 {
     public class CsvParser : AbstractFileParser
     {
-        public override async Task<IEnumerable<T>> ParseFileAsync<T>(string filePath)
-        {
-            using (var fs = new FileStream(filePath, FileMode.Open))
-            {
-                return await YieldFromStreamAsync<T>(fs);
-            }
-        }
-
-        public override async Task<IEnumerable<T>> ParseFileAsync<T>(Stream stream)
-        {
-            return await YieldFromStreamAsync<T>(stream);
-        }
-
-
-        private async Task<IEnumerable<T>> YieldFromStreamAsync<T>(System.IO.Stream stream) where T : new()
-        {
-            var recordResults = new List<T>(128);
-            await foreach (var result in ReadFromStreamAsync<T>(stream))
-            {
-                recordResults.Add(result);
-            }
-            return recordResults;
-        }
-        private async IAsyncEnumerable<T> ReadFromStreamAsync<T>(System.IO.Stream stream) where T : new()
+        protected override async IAsyncEnumerable<T> ReadFromStreamAsync<T>(System.IO.Stream stream)
         {
             var recordType = typeof(T);
             var properties = Serializer.GetProperties(recordType).ToDictionary(pi => pi.GetCustomAttribute<CsvColumnAttribute>().ColumnName);
@@ -45,9 +21,6 @@ namespace Budgeter.FileParsers
                 int columnIter = 0;
                 var headerLine = await sr.ReadLineAsync();
                 var headerColumns = headerLine.Split("\",\"").Select(s => RemoveQuotations(s));
-#if DEBUG
-                int recordIter = 0;
-#endif
                 while (!sr.EndOfStream)
                 {
                     var line = await sr.ReadLineAsync();
@@ -64,9 +37,6 @@ namespace Budgeter.FileParsers
                         columnIter++;
                     }
                     columnIter = 0;
-#if DEBUG
-                    recordIter++;
-#endif
                     yield return record;
                 }
             }

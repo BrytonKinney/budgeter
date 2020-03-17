@@ -1,4 +1,5 @@
 ﻿using Budgeter.API.Models;
+using Budgeter.API.Requests;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,7 +9,7 @@ namespace Budgeter.API.Services
 {
     public interface IDataService
     {
-        Task<IEnumerable<TransactionRecord>> GetTransactionsAsync(int skip, int take, bool ignorePayments = false);
+        Task<IEnumerable<TransactionRecord>> GetTransactionsAsync(PagedTransactionRequest request);
         Task UploadTransactions(IEnumerable<TransactionRecord> transactions);
         Task<long> GetTotalTransactionCountAsync(bool ignorePayments = false);
 

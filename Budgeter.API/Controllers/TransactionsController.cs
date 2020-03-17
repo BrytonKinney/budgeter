@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Budgeter.API.Models;
+using Budgeter.API.Requests;
 using Budgeter.API.Responses;
 using Budgeter.API.Services;
 using Microsoft.AspNetCore.Cors;
@@ -37,11 +38,11 @@ namespace Budgeter.API.Controllers
 
         [EnableCors]
         [HttpGet]
-        public async Task<IActionResult> Get(int skip, int take, bool ignorePayments = false)
+        public async Task<IActionResult> Get([FromQuery]PagedTransactionRequest request)
         {
-            var response = _dataService.GetTransactionsAsync(skip, take, ignorePayments);
-            var count = _dataService.GetTotalTransactionCountAsync(ignorePayments);
-            var trxResp = new TransactionsResponse() { Data = await response, Total = await count, Skip = skip, Take = take };
+            var response = _dataService.GetTransactionsAsync(request);
+            var count = _dataService.GetTotalTransactionCountAsync(request.IgnorePayments);
+            var trxResp = new TransactionsResponse() { Data = await response, Total = await count, Skip = request.Skip, Take = request.Take };
             return Ok(trxResp);
         }
 
